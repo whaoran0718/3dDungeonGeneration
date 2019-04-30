@@ -13293,7 +13293,7 @@ class Camera {
         this.len = 0;
         this.turnSpeed = 1;
         this.rollSpeed = 0.005;
-        this.theta = Math.min(Math.max(theta, -85), 85);
+        this.theta = Math.min(Math.max(theta, -85), 0);
         this.fixTheta = this.theta;
         this.phi = phi;
         this.len = len;
@@ -13326,7 +13326,7 @@ class Camera {
         }, false);
     }
     calculate() {
-        this.theta = Math.min(Math.max(this.theta, -85), 85);
+        this.theta = Math.min(Math.max(this.theta, -85), 0);
         if (this.phi <= -180)
             this.phi += 360;
         if (this.phi > 180)
