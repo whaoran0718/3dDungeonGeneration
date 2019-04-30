@@ -140,7 +140,7 @@ function main() {
     renderer.clear();
     shadow.setTexture(0);
     renderer.render(camera, shadow, wfcGraph.meshes);
-    //renderer.render(camera, shadow, [player.mesh]);
+    if (player.loaded) renderer.render(camera, shadow, [player.mesh]);
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, window.innerWidth, window.innerHeight);
@@ -153,7 +153,7 @@ function main() {
     lambert.setShadow(0);
     lambert.setTexture(1);
     renderer.render(camera, lambert, wfcGraph.meshes);
-    //renderer.render(camera, lambert, [player.mesh]);
+    if (player.loaded) renderer.render(camera, lambert, [player.mesh]);
     stats.end();
 
     // Tell the browser to call `tick` again whenever it renders a new frame

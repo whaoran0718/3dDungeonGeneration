@@ -17,7 +17,6 @@ export var wfcSamples =
         {name: "road_T", weight: 300, symmetry: "T", obj: "../model/road_T.obj", collider: "../model/collider_floor.obj"},
         {name: "ground", weight: 100, symmetry: "X", obj: "../model/ground.obj", collider: "../model/collider_floor.obj"},
         {name: "brick", weight: 1.8, symmetry: "X", obj: "../model/brick.obj", collider: "../model/collider_brick.obj"},
-        
     ],
     neighbors:[
         {left: "void", right: ["void"]},
