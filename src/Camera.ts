@@ -3,6 +3,7 @@ import {vec3, mat4} from 'gl-matrix';
 export let dMouseX: number = 0;
 export let dMouseY: number = 0;
 export let leftDown: boolean = false;
+export let rightDown: boolean = false;
 export let wheelY: number = 0;
 
 class Camera {
@@ -19,24 +20,28 @@ class Camera {
   right: vec3 = vec3.create();
   forward: vec3 = vec3.create();
   theta: number = 0;
+  fixTheta: number = 0;
   phi: number = 0;
   len: number = 0;
   turnSpeed: number = 1;
   rollSpeed: number = 0.005;
 
   constructor(theta: number, phi: number, len: number, target: vec3) {
-    this.theta = theta;
+    this.theta = Math.min(Math.max(theta, -85), 85);
+    this.fixTheta = this.theta;
     this.phi = phi;
     this.len = len;
     this.orthoSize = len;
     vec3.copy(this.target, target);
-    this.theta = Math.min(Math.max(this.theta, -85), 85);
     this.calculate();
 
     window.addEventListener("mousedown", function(e) {
       switch(e.button) {
         case 0:
         leftDown = true;
+        break;
+        case 2:
+        rightDown = true;
         break;
       }
     }, false);
@@ -60,6 +65,7 @@ class Camera {
   }
 
   calculate() {
+    this.theta = Math.min(Math.max(this.theta, -85), 85);
     if (this.phi <= -180) this.phi += 360;
     if (this.phi > 180) this.phi -= 360;
     let st = Math.sin(this.theta * Math.PI / 180);
@@ -95,10 +101,15 @@ class Camera {
       this.len = Math.min(Math.max(this.len + wheelY * this.rollSpeed, 5), 30);
       this.updateProjectionMatrix();
     }
-    if (leftDown) {
+    if (leftDown)  {
       this.phi += this.turnSpeed * dMouseX;
-      this.calculate();
+      this.theta += this.turnSpeed * dMouseY;
     }
+    if (rightDown) {
+      this.theta = this.fixTheta;
+      rightDown = false;
+    }
+    this.calculate();
     dMouseX = 0;
     dMouseY = 0;
     wheelY = 0;

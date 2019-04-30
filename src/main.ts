@@ -129,6 +129,11 @@ function main() {
 
     if (player.loaded) {
       player.update(1);
+      if (player.triggerWin()) {
+        wfcGraph.destory();
+        wfc.process(0);
+        player.reset();
+      }
     }
 
     camera.update();

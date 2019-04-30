@@ -48,6 +48,8 @@ class WFC
     startingEntropy: number;
 
     stop: boolean;
+    goal: number;
+    tileIdx: {[name: string]: [number, number]};
 
     constructor() {
         this.FMX = wfcSamples.resolution[0];
@@ -59,6 +61,7 @@ class WFC
     load() {
         this.tiles = new Array();
         this.weights = new Array();
+        this.tileIdx = {};
         let action = new Array<number[]>();
         let firstIdx: {[name: string]: number} = {};
         for (let tile of wfcSamples.tiles) {
@@ -101,6 +104,7 @@ class WFC
             let idx = action.length;
             let map = new Array<number[]>(cardinality);
             firstIdx[tilename] = idx;
+            this.tileIdx[tilename] = [idx, cardinality];
             for (let t = 0; t < cardinality; t++) {
                 map[t] = new Array<number>(8);
                 map[t][0] = t + idx;
@@ -264,6 +268,38 @@ class WFC
                 }
             }
         }
+
+        this.propagate();
+        let potentialGoal = new Array<number>();
+        let [tileidx, offset] = this.tileIdx["goal"];
+        for (let i = 0; i < this.S; i++) {
+            for (let j = 0; j < offset; j++) {
+                if (this.wave[i][j + tileidx]) { potentialGoal.push(i); break; }
+            }
+        }
+        let randIdx = Math.floor(randNext() * potentialGoal.length);
+        this.goal = potentialGoal[randIdx];
+        let coord = indexToCoord(randIdx);
+        if (offset == 4) {
+            if (coord[0] == 0) this.ban(randIdx, tileidx + 1);
+            if (coord[0] == this.FMX - 1) this.ban(randIdx, tileidx + 3);
+            if (coord[2] == 0) this.ban(randIdx, tileidx);
+            if (coord[2] == this.FMZ - 1) this.ban(randIdx, tileidx + 2);
+        }
+        
+        for (let i = 0; i < this.S; i++) {
+            if (i == this.goal) {
+                for (let t = 0; t < this.T; t++) {
+                    if (t == tileidx) t += offset;
+                    this.ban(i, t);
+                }
+            }
+            else {
+                for (let j = 0; j < offset; j++) {
+                    this.ban(i, tileidx + j);
+                }
+            }
+        }
         this.propagate();
         this.history = new Array();
     }
@@ -328,12 +364,12 @@ class WFC
         }
 
         let rec = this.record(0, minIdx, []);
-        let rand = randNext() * this.sumsOfWeights[minIdx];
+        let randw = randNext() * this.sumsOfWeights[minIdx];
         let w = 0, r = -1;
         for (let t = 0; t < this.T; t++) {
             if (!this.wave[minIdx][t]) continue;
             w += this.weights[t];
-            if (r == -1 && w >= rand)  {
+            if (r == -1 && w >= randw)  {
                 rec.value = [t];
                 r = t;
             }

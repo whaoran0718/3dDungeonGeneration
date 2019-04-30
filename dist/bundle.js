@@ -311,6 +311,7 @@ class WFC {
     load() {
         this.tiles = new Array();
         this.weights = new Array();
+        this.tileIdx = {};
         let action = new Array();
         let firstIdx = {};
         for (let tile of __WEBPACK_IMPORTED_MODULE_1__sample__["a" /* wfcSamples */].tiles) {
@@ -353,6 +354,7 @@ class WFC {
             let idx = action.length;
             let map = new Array(cardinality);
             firstIdx[tilename] = idx;
+            this.tileIdx[tilename] = [idx, cardinality];
             for (let t = 0; t < cardinality; t++) {
                 map[t] = new Array(8);
                 map[t][0] = t + idx;
@@ -535,6 +537,44 @@ class WFC {
             }
         }
         this.propagate();
+        let potentialGoal = new Array();
+        let [tileidx, offset] = this.tileIdx["goal"];
+        for (let i = 0; i < this.S; i++) {
+            for (let j = 0; j < offset; j++) {
+                if (this.wave[i][j + tileidx]) {
+                    potentialGoal.push(i);
+                    break;
+                }
+            }
+        }
+        let randIdx = Math.floor(randNext() * potentialGoal.length);
+        this.goal = potentialGoal[randIdx];
+        let coord = indexToCoord(randIdx);
+        if (offset == 4) {
+            if (coord[0] == 0)
+                this.ban(randIdx, tileidx + 1);
+            if (coord[0] == this.FMX - 1)
+                this.ban(randIdx, tileidx + 3);
+            if (coord[2] == 0)
+                this.ban(randIdx, tileidx);
+            if (coord[2] == this.FMZ - 1)
+                this.ban(randIdx, tileidx + 2);
+        }
+        for (let i = 0; i < this.S; i++) {
+            if (i == this.goal) {
+                for (let t = 0; t < this.T; t++) {
+                    if (t == tileidx)
+                        t += offset;
+                    this.ban(i, t);
+                }
+            }
+            else {
+                for (let j = 0; j < offset; j++) {
+                    this.ban(i, tileidx + j);
+                }
+            }
+        }
+        this.propagate();
         this.history = new Array();
     }
     process(iter) {
@@ -597,13 +637,13 @@ class WFC {
             return false;
         }
         let rec = this.record(0, minIdx, []);
-        let rand = randNext() * this.sumsOfWeights[minIdx];
+        let randw = randNext() * this.sumsOfWeights[minIdx];
         let w = 0, r = -1;
         for (let t = 0; t < this.T; t++) {
             if (!this.wave[minIdx][t])
                 continue;
             w += this.weights[t];
-            if (r == -1 && w >= rand) {
+            if (r == -1 && w >= randw) {
                 rec.value = [t];
                 r = t;
             }
@@ -774,7 +814,7 @@ var wfcSamples = {
         { name: "floor_corner", weight: 10, symmetry: "L", obj: "./model/floor_L.obj", collider: "./model/collider_floorL.obj" },
         { name: "floor_margin", weight: 10, symmetry: "T", obj: "./model/floor_T.obj", collider: "./model/collider_floorT.obj" },
         { name: "linker", weight: 1, symmetry: "T", obj: "./model/linker.obj", collider: "./model/collider_linker.obj" },
-        { name: "linker_L", weight: 0.01, symmetry: "L", obj: "./model/linker_L.obj", collider: "./model/collider_linkerL.obj" },
+        { name: "linker_L", weight: 0.03, symmetry: "L", obj: "./model/linker_L.obj", collider: "./model/collider_linkerL.obj" },
         { name: "linker_T", weight: 2, symmetry: "T", obj: "./model/linker_T.obj", collider: "./model/collider_linkerT.obj" },
         { name: "stairs", weight: 10, symmetry: "T", obj: "./model/stairs.obj", collider: "./model/collider_stairs.obj" },
         { name: "stairs_top", weight: 1, symmetry: "T", obj: "./model/stairs_top.obj", collider: "./model/collider_stairstop.obj" },
@@ -783,7 +823,8 @@ var wfcSamples = {
         { name: "road_L", weight: 500, symmetry: "L", obj: "./model/road_L.obj", collider: "./model/collider_floor.obj" },
         { name: "road_T", weight: 300, symmetry: "T", obj: "./model/road_T.obj", collider: "./model/collider_floor.obj" },
         { name: "ground", weight: 100, symmetry: "X", obj: "./model/ground.obj", collider: "./model/collider_floor.obj" },
-        { name: "brick", weight: 1.8, symmetry: "X", obj: "./model/brick.obj", collider: "./model/collider_brick.obj" },
+        { name: "brick", weight: 1.5, symmetry: "X", obj: "./model/brick.obj", collider: "./model/collider_brick.obj" },
+        { name: "goal", weight: 1, symmetry: "T", obj: "./model/goal.obj", collider: "./model/collider_brick.obj" }
     ],
     neighbors: [
         { left: "void", right: ["void"] },
@@ -792,14 +833,14 @@ var wfcSamples = {
         { left: "floor_corner 1", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "brick", "void"] },
         { left: "floor_margin", right: ["floor_margin", "linker 2"] },
         { left: "floor_margin 3", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "brick", "void"] },
-        { left: "linker 1", right: ["passage 1", "stairs_top 1", "stairs 3", "linker_L 1", "linker_L 2", "linker_T", "linker_T 2", "linker_T 3"] },
+        { left: "linker 1", right: ["passage 1", "stairs_top 1", "stairs 3", "linker_L 1", "linker_L 2", "linker_T", "linker_T 2"] },
         { left: "linker 3", right: ["linker 1"] },
-        { left: "linker_L", right: ["passage 1", "stairs_top 1", "stairs 3", "linker_L 1", "linker_L 2", "linker_T", "linker_T 2", "linker_T 3"] },
-        { left: "linker_L 1", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "brick", "void"] },
+        { left: "linker_L", right: ["passage 1", "stairs_top 1", "stairs 3", "linker_L 1", "linker_L 2", "linker_T", "linker_T 2"] },
+        { left: "linker_L 1", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "stairs_top 3", "brick", "void"] },
         { left: "linker_T", right: ["passage 1", "stairs_top 1", "stairs 3", "linker_T", "linker_T 2", "linker_T 3"] },
         { left: "linker_T 1", right: ["passage 1", "stairs_top 1", "stairs 3"] },
         { left: "linker_T 3", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "brick", "void"] },
-        { left: "passage", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "brick", "void"] },
+        { left: "passage", right: ["stairs", "stairs 1", "stairs 2", "stairs_top", "stairs_top 2", "stairs_top 3", "brick", "void"] },
         { left: "passage 1", right: ["stairs_top 1", "stairs 3", "passage 1"] },
         { left: "stairs_top", right: ["stairs", "stairs 1", "stairs 2", "stairs_top 2", "brick", "void"] },
         { left: "stairs_top 1", right: ["void"] },
@@ -815,6 +856,9 @@ var wfcSamples = {
         { left: "stairs 3", right: ["ground", "brick", "void"] },
         { left: "ground", right: ["ground", "brick"] },
         { left: "brick", right: ["brick", "void"] },
+        { left: "goal", right: ["void", "passage", "stairs_top", "stairs_top 2", "stairs", "stairs 1", "stairs 2", "road", "road_L", "road_L 3", "road_T 1", "ground", "brick"] },
+        { left: "goal 1", right: ["void", "passage", "stairs_top", "stairs_top 2", "stairs", "stairs 1", "stairs 2", "road", "road_L", "road_L 3", "road_T 1", "ground", "brick"] },
+        { left: "goal 3", right: ["void", "passage", "stairs_top", "stairs_top 2", "road", "road_L", "road_L 3", "road_T 1", "ground"] },
         { bottom: "void", top: ["passage", "void"] },
         { bottom: "floor", top: ["passage", "void"] },
         { bottom: "floor_corner", top: ["passage", "passage 1", "void"] },
@@ -829,7 +873,7 @@ var wfcSamples = {
         { bottom: "road_L", top: ["passage", "passage 1", "void"] },
         { bottom: "road_T", top: ["passage", "passage 1", "void"] },
         { bottom: "ground", top: ["passage", "linker_L", "void"] },
-        { bottom: "brick", top: ["floor", "floor_corner", "floor_margin", "linker", "linker_L", "linker_T", "stairs", "brick", "passage"] },
+        { bottom: "brick", top: ["floor", "floor_corner", "floor_margin", "linker", "linker_L", "linker_T", "stairs", "brick", "passage", "goal"] },
         { bottom: "void", top: ["linker_L"] },
         { bottom: "floor", top: ["linker_L"] },
         { bottom: "floor_corner", top: ["linker_L", "linker_L 1", "linker_L 2", "linker_L 3"] },
@@ -844,10 +888,13 @@ var wfcSamples = {
         { bottom: "road_L", top: ["linker_L", "linker_L 1", "linker_L 2", "linker_L 3"] },
         { bottom: "road_T", top: ["linker_L", "linker_L 1", "linker_L 2", "linker_L 3"] },
         { bottom: "ground", top: ["linker_L"] },
+        { bottom: "goal", top: ["floor", "floor_corner", "floor_corner 2", "floor_margin", "floor_margin 1", "floor_margin 2",
+                "linker", "linker 1", "linker 2", "linker_L", "linker_L 2", "linker_T", "linker_T 1", "linker_T 2",
+                "stairs", "stairs 1", "stairs 2", "brick", "passage", "passage 1"] },
     ],
     limits: [
-        { min: [0, 0, 0], max: [10, 1, 10], tiles: "road road_L road_T ground brick stairs" },
-        { min: [0, 5, 0], max: [10, 6, 10], tiles: "void" }
+        { min: [0, 0, 0], max: [10, 1, 10], tiles: "road road_L road_T ground brick stairs goal" },
+        { min: [0, 5, 0], max: [10, 6, 10], tiles: "void" },
     ]
 };
 
@@ -6045,6 +6092,11 @@ function main() {
         }
         if (player.loaded) {
             player.update(1);
+            if (player.triggerWin()) {
+                wfcGraph.destory();
+                wfc.process(0);
+                player.reset();
+            }
         }
         camera.update();
         stats.begin();
@@ -13212,12 +13264,14 @@ class OpenGLRenderer {
 /* unused harmony export dMouseX */
 /* unused harmony export dMouseY */
 /* unused harmony export leftDown */
+/* unused harmony export rightDown */
 /* unused harmony export wheelY */
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_gl_matrix__ = __webpack_require__(1);
 
 let dMouseX = 0;
 let dMouseY = 0;
 let leftDown = false;
+let rightDown = false;
 let wheelY = 0;
 class Camera {
     constructor(theta, phi, len, target) {
@@ -13234,21 +13288,25 @@ class Camera {
         this.right = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
         this.forward = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
         this.theta = 0;
+        this.fixTheta = 0;
         this.phi = 0;
         this.len = 0;
         this.turnSpeed = 1;
         this.rollSpeed = 0.005;
-        this.theta = theta;
+        this.theta = Math.min(Math.max(theta, -85), 85);
+        this.fixTheta = this.theta;
         this.phi = phi;
         this.len = len;
         this.orthoSize = len;
         __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].copy(this.target, target);
-        this.theta = Math.min(Math.max(this.theta, -85), 85);
         this.calculate();
         window.addEventListener("mousedown", function (e) {
             switch (e.button) {
                 case 0:
                     leftDown = true;
+                    break;
+                case 2:
+                    rightDown = true;
                     break;
             }
         }, false);
@@ -13268,6 +13326,7 @@ class Camera {
         }, false);
     }
     calculate() {
+        this.theta = Math.min(Math.max(this.theta, -85), 85);
         if (this.phi <= -180)
             this.phi += 360;
         if (this.phi > 180)
@@ -13304,8 +13363,13 @@ class Camera {
         }
         if (leftDown) {
             this.phi += this.turnSpeed * dMouseX;
-            this.calculate();
+            this.theta += this.turnSpeed * dMouseY;
         }
+        if (rightDown) {
+            this.theta = this.fixTheta;
+            rightDown = false;
+        }
+        this.calculate();
         dMouseX = 0;
         dMouseY = 0;
         wheelY = 0;
@@ -13672,8 +13736,9 @@ class Player {
         this.gravity = -0.005;
         this.velY = 0.0;
         this.jumpSpeed = 0.12;
+        this.triggerDist = 0.3;
         this.loaded = false;
-        this.pos = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(0, 0, 0);
+        this.pos = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(Math.random() * 0.05 - 0.05, 0, Math.random() * 0.05 - 0.05);
         this.size = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
         let h = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(0, this.height, 0);
         __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].scale(h, h, 1 / (this.rayCount - 1));
@@ -13787,6 +13852,20 @@ class Player {
                 idx.push(__WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(mesh.indices[j * 3], mesh.indices[j * 3 + 1], mesh.indices[j * 3 + 2]));
             }
         }
+        let [x, y, z] = Object(__WEBPACK_IMPORTED_MODULE_1__wfc__["d" /* indexToCoord */])(wfc.goal);
+        x -= l_2;
+        y -= h_2;
+        z -= w_2;
+        let modMat = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["b" /* mat4 */].clone(wfc.tiles[wfc.voxels[wfc.goal]].modelMat);
+        modMat[12] = x;
+        modMat[13] = y;
+        modMat[14] = z;
+        let v0 = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["d" /* vec4 */].fromValues(-0.5, -0.5, -0.5, 1);
+        let v1 = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["d" /* vec4 */].fromValues(0.5, 0.5, -0.5 - this.triggerDist, 1);
+        __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["d" /* vec4 */].transformMat4(v0, v0, modMat);
+        __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["d" /* vec4 */].transformMat4(v1, v1, modMat);
+        this.trigger = [__WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(Math.min(v0[0], v1[0]), Math.min(v0[1], v1[1]), Math.min(v0[2], v1[2])),
+            __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(Math.max(v0[0], v1[0]), Math.max(v0[1], v1[1]), Math.max(v0[2], v1[2]))];
         this.loaded = true;
     }
     update(t) {
@@ -13840,7 +13919,7 @@ class Player {
             d[1] += this.velY * t;
         }
         this.resolveCollision(d);
-        let epsilon = 1e-2;
+        let epsilon = 1e-1;
         this.pos[0] = Math.max(Math.min(this.pos[0], this.size[0] / 2 - epsilon), -this.size[0] / 2 + epsilon);
         this.pos[1] = Math.max(this.pos[1], -this.size[1] / 2 + epsilon);
         this.pos[2] = Math.max(Math.min(this.pos[2], this.size[2] / 2 - epsilon), -this.size[2] / 2 + epsilon);
@@ -13856,6 +13935,20 @@ class Player {
         __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["b" /* mat4 */].fromTranslation(modeMat, this.pos);
         this.mesh = new __WEBPACK_IMPORTED_MODULE_3__geometry_Mesh__["b" /* default */](this.meshLoader, modeMat);
         this.mesh.create();
+    }
+    triggerWin() {
+        for (let ori of this.rayOri) {
+            for (let i = 0; i < 3; i++) {
+                if (ori[0] + this.pos[0] <= this.trigger[1][0] &&
+                    ori[0] + this.pos[0] >= this.trigger[0][0] &&
+                    ori[1] + this.pos[1] <= this.trigger[1][1] &&
+                    ori[1] + this.pos[1] >= this.trigger[0][1] &&
+                    ori[2] + this.pos[2] <= this.trigger[1][2] &&
+                    ori[2] + this.pos[2] >= this.trigger[0][2])
+                    return true;
+            }
+        }
+        return false;
     }
     onGround(norm) {
         let ori = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].clone(this.rayOri[1]);
@@ -13966,6 +14059,16 @@ class Player {
         __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].add(p, p, pos);
         __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].round(p, p);
         return p;
+    }
+    reset() {
+        this.loaded = false;
+        this.pos = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].fromValues(Math.random() * 0.05 - 0.05, 0, Math.random() * 0.05 - 0.05);
+        this.size = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
+        if (this.camera != undefined) {
+            this.camera.target[0] = this.pos[0];
+            this.camera.target[2] = this.pos[2];
+            this.camera.calculate();
+        }
     }
 }
 /* harmony export (immutable) */ __webpack_exports__["a"] = Player;

@@ -29,10 +29,12 @@ export default class Player
     meshLoader: MeshLoader;
     mesh: Mesh;
     camera: Camera;
+    triggerDist: number = 0.3;
+    trigger: [vec3, vec3];
 
     constructor() {
         this.loaded = false;
-        this.pos = vec3.fromValues(0, 0, 0);
+        this.pos = vec3.fromValues(Math.random() * 0.05 - 0.05, 0, Math.random() * 0.05 - 0.05);
         this.size = vec3.create();
         let h = vec3.fromValues(0, this.height, 0);
         vec3.scale(h, h, 1 / (this.rayCount - 1));
@@ -83,8 +85,6 @@ export default class Player
                 default: break;
               }
         }, false);
-
-
     }
 
     loadCollider(wfc: WFC) {
@@ -164,6 +164,26 @@ export default class Player
                                          mesh.indices[j * 3 + 2]));
             }
         }
+        
+        let [x, y, z] = indexToCoord(wfc.goal);
+        x -= l_2;
+        y -= h_2;
+        z -= w_2;
+        let modMat = mat4.clone(wfc.tiles[wfc.voxels[wfc.goal]].modelMat);
+        modMat[12] = x;
+        modMat[13] = y;
+        modMat[14] = z;
+        let v0 = vec4.fromValues(-0.5, -0.5, -0.5, 1);
+        let v1 = vec4.fromValues(0.5, 0.5, -0.5 - this.triggerDist, 1);
+        vec4.transformMat4(v0, v0, modMat);
+        vec4.transformMat4(v1, v1, modMat);
+        this.trigger = [vec3.fromValues(Math.min(v0[0], v1[0]),
+                                        Math.min(v0[1], v1[1]),
+                                        Math.min(v0[2], v1[2])),
+                        vec3.fromValues(Math.max(v0[0], v1[0]),
+                                        Math.max(v0[1], v1[1]),
+                                        Math.max(v0[2], v1[2]))];
+
         this.loaded = true;
     }
 
@@ -222,7 +242,7 @@ export default class Player
         }
 
         this.resolveCollision(d);
-        let epsilon = 1e-2;
+        let epsilon = 1e-1;
         this.pos[0] = Math.max(Math.min(this.pos[0], this.size[0] / 2 - epsilon), -this.size[0] / 2 + epsilon);
         this.pos[1] = Math.max(this.pos[1], -this.size[1] / 2 + epsilon);
         this.pos[2] = Math.max(Math.min(this.pos[2], this.size[2] / 2 - epsilon), -this.size[2] / 2 + epsilon);
@@ -239,6 +259,21 @@ export default class Player
         mat4.fromTranslation(modeMat, this.pos);
         this.mesh = new Mesh(this.meshLoader, modeMat);
         this.mesh.create();
+    }
+
+    triggerWin() {
+        for (let ori of this.rayOri) {
+            for (let i = 0; i < 3; i++) {
+                if (ori[0] + this.pos[0] <= this.trigger[1][0] &&
+                    ori[0] + this.pos[0] >= this.trigger[0][0] &&
+                    ori[1] + this.pos[1] <= this.trigger[1][1] &&
+                    ori[1] + this.pos[1] >= this.trigger[0][1] &&
+                    ori[2] + this.pos[2] <= this.trigger[1][2] &&
+                    ori[2] + this.pos[2] >= this.trigger[0][2] )
+                    return true;
+            }
+        }
+        return false;
     }
 
     onGround(norm?: vec3) {
@@ -349,6 +384,17 @@ export default class Player
         vec3.add(p, p, pos);
         vec3.round(p, p);
         return p;
+    }
+
+    reset() {
+        this.loaded = false;
+        this.pos = vec3.fromValues(Math.random() * 0.05 - 0.05, 0, Math.random() * 0.05 - 0.05);
+        this.size = vec3.create();
+        if (this.camera != undefined) {
+            this.camera.target[0] = this.pos[0];
+            this.camera.target[2] = this.pos[2];
+            this.camera.calculate();
+        }
     }
 }
 
