@@ -8,10 +8,9 @@
 
 ## Techniques
 ### Wave Function Collapse
-Wave function collapse is exactly a basic concept of quantum physics. Generally speaking, WFC here is method to determine which type of pattern or tile would appear in a specific location of a wave or domain based on a set of rules and constraints. For each collapse step, WFC does the following things:
+Wave function collapse is exactly a basic concept of quantum physics. Generally speaking, WFC here is method to determine which type of pattern or tile would appear in a specific location of a wave or domain based on a set of rules and constraints. For each collapse step, WFC does the following things until all elements are collapsed:
  - Find and choose a wave element (i.e. cell for 2D case and voxel for 3D case in this project) with the minimal nonzero entropy. A voxel has the lowest entropy means the highest certainty.
  - Fix the type of tile for the selected element based on the distribution of tiles.
-Finally, when all elements are collapsed, we get the result.
 
 Tile Models Used in the Project
 
