@@ -22,7 +22,7 @@ let time: number = 0.0;
 let wfc: WFC;
 let wfcGraph: WFCGraph;
 let lightDir: vec3;
-let texPath = "../model/texture.png";
+let texPath = "./model/texture.png";
 let tex: WebGLTexture;
 let player: Player;
 
