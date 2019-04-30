@@ -27,7 +27,7 @@ class Camera {
   rollSpeed: number = 0.005;
 
   constructor(theta: number, phi: number, len: number, target: vec3) {
-    this.theta = Math.min(Math.max(theta, -85), 0);
+    this.theta = Math.min(Math.max(theta, 0), 85);
     this.fixTheta = this.theta;
     this.phi = phi;
     this.len = len;
@@ -65,7 +65,7 @@ class Camera {
   }
 
   calculate() {
-    this.theta = Math.min(Math.max(this.theta, -85), 0);
+    this.theta = Math.min(Math.max(this.theta, 0), 85);
     if (this.phi <= -180) this.phi += 360;
     if (this.phi > 180) this.phi -= 360;
     let st = Math.sin(this.theta * Math.PI / 180);
