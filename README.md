@@ -14,6 +14,7 @@ Wave function collapse is exactly a basic concept of quantum physics. Generally 
 Finally, when all elements are collapsed, we get the result.
 
 Tile Models Used in the Project
+
 ![](tiles.png)
 
 ### Rules and Constraints
@@ -23,18 +24,21 @@ Since it is hard to provide a prototype for automated rules generation for my 3D
 Sometimes, contradiction happens when an element has no possible tiles. A simple way is to discard entirely and start a new process. However, this method would wast a long time to find a potential correct result when the domain (i.e. wave) is large. So in this project, I use a stack to record the history of generation and cancel a step when contradiction happens. To be exact, this method will always find a result unless contradictions are from the input.
 
 Generation Process
+
 ![](wfc.gif)
 
 ### Collision Detection
 In this project, I simplify the character collider to a set of rays laying from foot to head and do collisition detection with its surrounding triangles. On the other hand, the collier of each tile is a simplified geometry with the same topology.
 
 Simplified Collider Geometries
+
 ![](colliders.png)
 
 ### Game Play
 Player can move the character in the 3D map. Player need find and touch the goal (i.e. Psyduck sticker on the wall) in the map and then play in a new level.
 
 Psyduck Sticker
+
 ![](Psyduck.png)
 
 ## Resources
