@@ -42,7 +42,7 @@ export default class Player
             this.rayOri[i] = vec3.create();
             vec3.add(this.rayOri[i], this.rayOri[i - 1], h);
         }
-        this.meshLoader = new MeshLoader("../model/character.obj");
+        this.meshLoader = new MeshLoader("./model/character.obj");
         this.meshLoader.load();
         this.mesh = new Mesh(this.meshLoader, mat4.create());
         this.mesh.create();
@@ -222,6 +222,11 @@ export default class Player
         }
 
         this.resolveCollision(d);
+        let epsilon = 1e-2;
+        this.pos[0] = Math.max(Math.min(this.pos[0], this.size[0] / 2 - epsilon), -this.size[0] / 2 + epsilon);
+        this.pos[1] = Math.max(this.pos[1], -this.size[1] / 2 + epsilon);
+        this.pos[2] = Math.max(Math.min(this.pos[2], this.size[2] / 2 - epsilon), -this.size[2] / 2 + epsilon);
+
         if (this.camera != undefined) {
             let disp = vec3.create();
             vec3.subtract(disp, this.pos, p);
@@ -327,7 +332,7 @@ export default class Player
             vec3.add(this.pos, this.pos, epsilon);
 
             let dotValue = -vec3.dot(norm, dir);
-            if (dotValue < 0.71 && dotValue >= 0) {
+            if (dotValue >= 0) {
                 let v = vec3.create();
                 vec3.subtract(disp, dis, disp);
                 vec3.scale(v, norm, vec3.dot(norm, disp));
@@ -345,7 +350,6 @@ export default class Player
         vec3.round(p, p);
         return p;
     }
-    
 }
 
 function triangleCast(ori: vec3, dir: vec3, p0: vec3, p1: vec3, p2: vec3) {

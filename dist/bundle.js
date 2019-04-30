@@ -13683,7 +13683,7 @@ class Player {
             this.rayOri[i] = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
             __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].add(this.rayOri[i], this.rayOri[i - 1], h);
         }
-        this.meshLoader = new __WEBPACK_IMPORTED_MODULE_3__geometry_Mesh__["a" /* MeshLoader */]("../model/character.obj");
+        this.meshLoader = new __WEBPACK_IMPORTED_MODULE_3__geometry_Mesh__["a" /* MeshLoader */]("./model/character.obj");
         this.meshLoader.load();
         this.mesh = new __WEBPACK_IMPORTED_MODULE_3__geometry_Mesh__["b" /* default */](this.meshLoader, __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["b" /* mat4 */].create());
         this.mesh.create();
@@ -13840,6 +13840,10 @@ class Player {
             d[1] += this.velY * t;
         }
         this.resolveCollision(d);
+        let epsilon = 1e-2;
+        this.pos[0] = Math.max(Math.min(this.pos[0], this.size[0] / 2 - epsilon), -this.size[0] / 2 + epsilon);
+        this.pos[1] = Math.max(this.pos[1], -this.size[1] / 2 + epsilon);
+        this.pos[2] = Math.max(Math.min(this.pos[2], this.size[2] / 2 - epsilon), -this.size[2] / 2 + epsilon);
         if (this.camera != undefined) {
             let disp = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
             __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].subtract(disp, this.pos, p);
@@ -13946,7 +13950,7 @@ class Player {
             __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].scale(epsilon, norm, 1e-4);
             __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].add(this.pos, this.pos, epsilon);
             let dotValue = -__WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].dot(norm, dir);
-            if (dotValue < 0.71 && dotValue >= 0) {
+            if (dotValue >= 0) {
                 let v = __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].create();
                 __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].subtract(disp, dis, disp);
                 __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].scale(v, norm, __WEBPACK_IMPORTED_MODULE_0_gl_matrix__["c" /* vec3 */].dot(norm, disp));
