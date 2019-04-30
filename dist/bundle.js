@@ -776,7 +776,7 @@ var wfcSamples = {
         { name: "linker", weight: 1, symmetry: "T", obj: "../model/linker.obj", collider: "../model/collider_linker.obj" },
         { name: "linker_L", weight: 0.01, symmetry: "L", obj: "../model/linker_L.obj", collider: "../model/collider_linkerL.obj" },
         { name: "linker_T", weight: 2, symmetry: "T", obj: "../model/linker_T.obj", collider: "../model/collider_linkerT.obj" },
-        { name: "stairs", weight: 10, symmetry: "T", obj: "../model/stairs2.obj", collider: "../model/collider_stairs.obj" },
+        { name: "stairs", weight: 10, symmetry: "T", obj: "../model/stairs.obj", collider: "../model/collider_stairs.obj" },
         { name: "stairs_top", weight: 1, symmetry: "T", obj: "../model/stairs_top.obj", collider: "../model/collider_stairstop.obj" },
         { name: "passage", weight: 0.5, symmetry: "I", obj: "../model/passage.obj", collider: "../model/collider_passage.obj" },
         { name: "road", weight: 500, symmetry: "I", obj: "../model/road.obj", collider: "../model/collider_floor.obj" },
