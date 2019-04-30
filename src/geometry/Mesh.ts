@@ -1,26 +1,22 @@
-import {vec3, vec4} from 'gl-matrix';
+import {vec3, vec4, mat4, mat3} from 'gl-matrix';
 import Drawable from '../rendering/gl/Drawable';
-import {gl} from '../globals';
-import * as Loader from 'webgl-obj-loader';
+import {gl, readTextFile} from '../globals';
+import * as Loader from 'webgl-obj-loader' ;
 
-class Mesh extends Drawable {
+class MeshLoader {
   indices: Uint32Array;
   positions: Float32Array;
   normals: Float32Array;
   colors: Float32Array;
   uvs: Float32Array;
-  center: vec4;
 
   objString: string;
 
-  constructor(objString: string, center: vec3) {
-    super(); // Call the constructor of the super class. This is required.
-    this.center = vec4.fromValues(center[0], center[1], center[2], 1);
-
-    this.objString = objString;
+  constructor(objFile: string) {
+    this.objString = readTextFile(objFile);
   }
 
-  create() {  
+  load() {
     let posTemp: Array<number> = [];
     let norTemp: Array<number> = [];
     let uvsTemp: Array<number> = [];
@@ -53,31 +49,78 @@ class Mesh extends Drawable {
     this.positions = new Float32Array(posTemp);
     this.uvs = new Float32Array(uvsTemp);
 
+    console.log(`Created Mesh from OBJ`);
+    this.objString = ""; // hacky clear
+  }
+}
+
+class Mesh extends Drawable {
+  mesh: MeshLoader
+  transform: mat4;
+  invTranspose: mat3;
+
+  constructor(mesh: MeshLoader, transform: mat4) {
+    super(); // Call the constructor of the super class. This is required.
+    this.mesh = mesh;
+    this.transform = mat4.clone(transform);
+    let invTMat = mat3.create()
+    mat3.fromMat4(invTMat, transform);
+    mat3.invert(invTMat, invTMat);
+    mat3.transpose(invTMat, invTMat);
+    this.invTranspose = invTMat;
+  }
+
+  create() {
     this.generateIdx();
     this.generatePos();
     this.generateNor();
     this.generateUV();
     this.generateCol();
 
-    this.count = this.indices.length;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufIdx);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.indices, gl.STATIC_DRAW);
+    let posTemp = new Array<number>(this.mesh.positions.length);
+    for (let i = 0; i < this.mesh.positions.length / 4; i++) {
+      let pos = vec4.fromValues(this.mesh.positions[i * 4],
+                                this.mesh.positions[i * 4 + 1],
+                                this.mesh.positions[i * 4 + 2],
+                                this.mesh.positions[i * 4 + 3]);
+      vec4.transformMat4(pos, pos, this.transform);
+      posTemp[i * 4] = pos[0];
+      posTemp[i * 4 + 1] = pos[1];
+      posTemp[i * 4 + 2] = pos[2];
+      posTemp[i * 4 + 3] = pos[3];
+    }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufNor);
-    gl.bufferData(gl.ARRAY_BUFFER, this.normals, gl.STATIC_DRAW);
+    let norTemp = new Array<number>(this.mesh.normals.length);
+    for (let i = 0; i < this.mesh.normals.length / 4; i++) {
+      let nor = vec3.fromValues(this.mesh.normals[i * 4],
+                                this.mesh.normals[i * 4 + 1],
+                                this.mesh.normals[i * 4 + 2]);
+      vec3.transformMat3(nor, nor, this.invTranspose);
+      vec3.normalize(nor, nor);
+      norTemp[i * 4] = nor[0];
+      norTemp[i * 4 + 1] = nor[1];
+      norTemp[i * 4 + 2] = nor[2];
+      norTemp[i * 4 + 3] = 0.0;
+    }
+
+    this.count = this.mesh.indices.length;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufIdx);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.mesh.indices, gl.STATIC_DRAW);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufPos);
-    gl.bufferData(gl.ARRAY_BUFFER, this.positions, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(posTemp), gl.STATIC_DRAW);
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.bufNor);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(norTemp), gl.STATIC_DRAW);
+    
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufCol);
-    gl.bufferData(gl.ARRAY_BUFFER, this.colors, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, this.mesh.colors, gl.STATIC_DRAW);                   
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufUV);
-    gl.bufferData(gl.ARRAY_BUFFER, this.uvs, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, this.mesh.uvs, gl.STATIC_DRAW);
 
-    console.log(`Created Mesh from OBJ`);
-    this.objString = ""; // hacky clear
   }
 };
 
 export default Mesh;
+export { MeshLoader }; 

@@ -1,0 +1,371 @@
+import { mat4 } from "gl-matrix";
+import { wfcSamples } from "./sample";
+
+let rand = Math.random();
+
+function randNext(){
+    let d = Math.sin(rand * 10 * 127.1) * 43758.5453;
+    rand = d - Math.floor(d);
+    return rand;
+}
+
+class WFC
+{
+    l: number;
+    w: number;
+    h: number;
+    size: number;
+    tiles: Array<{slotType: Array<string>, weight: number, modelMat: mat4, name: string}>;
+    linkRules: Array<{[slotType: string]: Array<number>}>;
+    banRules: {[tile0: string]: Array<string>};
+    tileCount: number;
+    voxelTileList: Array<Array<boolean>>;
+
+    voxelSlotCount: Array<Array<{[slotType: string]: number}>>;
+    voxels: Array<number>;
+    sumOfWeights: Array<number>
+    sumOfLogWeights: Array<number>;
+
+    updateQueue: Array<[number, number]>;
+
+    constructor() {
+        this.l = wfcSamples.size[0];
+        this.w = wfcSamples.size[2];
+        this.h = wfcSamples.size[1];
+        this.size = this.l * this.w * this.h;
+    }
+
+    init() {
+        this.tiles = new Array();
+        this.voxelTileList = new Array(this.size);
+        this.voxelSlotCount = new Array(this.size);
+        this.voxels = new Array<number>(this.size).fill(-1);
+        this.sumOfWeights = new Array<number>(this.size);
+        this.sumOfLogWeights = new Array<number>(this.size);
+        this.updateQueue = new Array();
+        this.linkRules = new Array(6);
+        
+        for (let t of wfcSamples.tiles) {
+            let tile = {
+                slotType: t.slots.split(" "),
+                weight: t.weight,
+                modelMat: mat4.create(),
+                name: t.name
+            }
+            let idx = this.tiles.length;
+            this.tiles.push(tile);
+            for (let k = 0; k < 3; k++) {
+                this.tiles.push(this.rotate(idx + k));
+            }
+
+            for (let k = 0; k < 4; k++) {
+                this.tiles.push(this.mirror(idx + k));
+            }
+        }
+        for (let i = 0; i < this.tiles.length; i++) {
+            this.registerLinkRules(i);
+        }
+
+        this.banRules = {}
+        for (let b of wfcSamples.ban) {
+            if (this.banRules[b.tile0] == undefined) {
+                this.banRules[b.tile0] = new Array<string>();
+            }
+            this.banRules[b.tile0].push(b.tile1);
+            if (b.tile0 == b.tile1) continue;
+            if (this.banRules[b.tile1] == undefined) {
+                this.banRules[b.tile1] = new Array<string>();
+            }
+            this.banRules[b.tile1].push(b.tile0);
+        }
+
+        this.tileCount = this.tiles.length;
+        let sumOfWeights = 0;
+        let sumOfLogWeights = 0;
+        for (let i = 0; i < this.tileCount; i++) {
+            let weight = this.tiles[i].weight;
+            sumOfWeights += weight;
+            sumOfLogWeights += weight * Math.log2(weight);
+        }
+        for (let i = 0; i < this.size; i++) {
+            this.voxelTileList[i] = new Array<boolean>(this.tileCount).fill(true);
+            this.sumOfWeights[i] = sumOfWeights;
+            this.sumOfLogWeights[i] = sumOfLogWeights;
+
+            let slotCount = new Array<{[slotType: string]: number}>(6);
+            for (let j = 0; j < 6; j++) {
+                let rules = this.linkRules[j];
+                let sc: {[slotType: string]: number} = {};
+                for (let type in rules) {
+                    sc[type] = rules[type].length;
+                }
+                slotCount[j] = sc;
+            }
+            this.voxelSlotCount[i] = slotCount;
+        }
+
+        for (let bound of wfcSamples.boundary) {
+            let c0 = 0;
+            let c1 = 0;
+            switch(bound.axis) {
+                case 0: c0 = 1; c1 = 2; break;
+                case 1: c0 = 0; c1 = 2; break;
+                case 2: c0 = 0; c1 = 1; break;
+                default: continue;
+            }
+
+            let banList = bound.ban.split(" ");
+            let boundary = [this.l, this.h, this.w];
+            for (let i = 0; i < boundary[c0]; i++) {
+                for (let j = 0; j < boundary[c1]; j++) {
+                    let coord = [0, 0, 0];
+                    coord[c0] = i;
+                    coord[c1] = j;
+                    coord[bound.axis] = bound.value;
+                    if (!this.inBound(coord)) continue;
+                    let idx = this.coordToIndex(coord);
+                    for (let k = 0; k < this.tileCount; k++) {
+                        let name = this.tiles[k].name;
+                        if (banList.some(function(banTile) {
+                                return name == banTile;
+                            }))
+                        {
+                            this.banTileFromVoxel(idx, k);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    
+    // anti-clockwise from top
+    rotate(index: number) {
+        let newTile = new Array<string>(6);
+        for (let i = 0; i < 6; i++) {
+            let slot = this.tiles[index].slotType[rotIdx[i]];
+            if (i > 3) {
+                let char = slot[slot.length - 1];
+                switch(char) {
+                    case 'i': { break; }
+                    case 'b': { slot = slot.substr(0, slot.length - 1).concat('c'); break; }
+                    case 'c': { slot = slot.substr(0, slot.length - 1).concat('d'); break; }
+                    case 'd': { slot = slot.substr(0, slot.length - 1); break; }
+                    default: { slot = slot.concat('b'); break; }
+                }
+            }
+            newTile[i] = slot;
+        }
+
+        let modelMat = mat4.create();
+        mat4.rotateY(modelMat, this.tiles[index].modelMat, Math.PI / 2);
+        return  { slotType: newTile, 
+                  weight: this.tiles[index].weight, 
+                  modelMat: modelMat,
+                  name: this.tiles[index].name
+                };
+    }
+
+    // along x axis
+    mirror(index: number) {
+        let newTile = new Array<string>(6);
+        for (let i = 0; i < 6; i++) {
+            let slot = this.tiles[index].slotType[mirIdx[i]];
+            let char = slot[slot.length - 1];
+            switch(char) {
+                case 'i': { break; }
+                case 's': { break; }
+                case 'f': { slot = slot.substr(0, slot.length - 1); break; }
+                default: { slot = slot.concat('f'); break; }
+            }
+            newTile[i] = slot;
+        }
+
+        let modelMat = mat4.create();
+        mat4.fromScaling(modelMat, [-1, 1, 1]);
+        mat4.multiply(modelMat, modelMat, this.tiles[index].modelMat);
+        return  { slotType: newTile, 
+                  weight: this.tiles[index].weight, 
+                  modelMat: modelMat,
+                  name: this.tiles[index].name
+                };
+    }
+
+    registerLinkRules(index: number) {
+        let slotType = this.tiles[index].slotType;
+        for (let i = 0; i < 6; i++) {
+            if (this.linkRules[i] == undefined) {
+                this.linkRules[i] = {};
+            }
+            if (this.linkRules[i][slotType[i]] == undefined) {
+                this.linkRules[i][slotType[i]] = new Array<number>();
+            }
+            this.linkRules[i][slotType[i]].push(index);
+        }
+    }
+
+    process() {
+        if(!this.propagate()) return false;
+        for (let i = 0; i < this.size; i++) {
+            let index = this.findLowsetEntropy();
+            if (index != -1) {
+                this.collapse(index);
+                if(!this.propagate()) return false;
+            }
+        }
+        return true;
+    }
+
+    findLowsetEntropy() {
+        let minEntropy = 1e5;
+        let index = -1;
+        let validCount = 0;
+        for (let i = 0; i < this.size; i++) {
+            if (this.voxels[i] != -1) continue;
+            if (this.sumOfWeights[i] < 1e-5) return -1;
+
+            let entropy = Math.log2(this.sumOfWeights[i]) - this.sumOfLogWeights[i] / this.sumOfWeights[i];
+            // TODO: pseudo ramdom
+            entropy += randNext() * 1e-3
+            if (entropy < minEntropy) {
+                minEntropy = entropy;
+                index = i;
+            }
+            validCount++;
+        }
+
+        if (index == -1) {
+            // TODO: pseudo ramdom
+            let randomIdx = validCount * randNext() + 1;
+            for (let k = 0, i = 0; k < randomIdx; index++, i++) {
+                if (this.voxels[i] == -1) k++;
+            }
+        }
+        return index;
+    }
+
+    collapse(index: number) {
+        // TODO: pseudo ramdom
+        let rand = randNext();
+        let sumPercent = 0;
+        let tileIdx = -1;
+        let curSumOfWeight = this.sumOfWeights[index];
+        for (let i = 0; i < this.tileCount; i++) {
+            if (this.voxelTileList[index][i]) {
+                sumPercent += this.tiles[i].weight / curSumOfWeight;
+                if (tileIdx == -1 && rand < sumPercent) tileIdx = i;
+                else this.banTileFromVoxel(index, i);
+            }
+        }
+        this.voxels[index] = tileIdx;
+
+        let tileSlot = this.tiles[tileIdx].slotType;
+        for (let i = 0; i < 6; i++) {
+            let coord = this.indexToCoord(index);
+            for (let j = 0; j < 3; j++) coord[j] += bias[i][j];
+            if (!this.inBound(coord)) continue;
+            let newIdx = this.coordToIndex(coord);
+            let tile0 = this.tiles[tileIdx].name.concat(":", tileSlot[i]);
+            this.banTileByRules(newIdx, opposit[i], tile0);
+        }
+    }
+
+    propagate() {
+        while(this.updateQueue.length > 0) {
+            let [index, tile] = this.updateQueue.pop();
+            if (this.sumOfWeights[index] < 1e-5) return false;
+            let tileSlot = this.tiles[tile].slotType;
+            for (let i = 0; i < 6; i++) {
+                let slotType = tileSlot[i];
+                this.voxelSlotCount[index][i][slotType]--;
+                if (this.voxelSlotCount[index][i][slotType] != 0) continue;
+
+                let coord = this.indexToCoord(index);
+                for (let j = 0; j < 3; j++) coord[j] += bias[i][j];
+                if (!this.inBound(coord)) continue;
+                
+                let newIdx = this.coordToIndex(coord);
+                let st = slotType;
+                if (i < 4) {
+                    let char = st[st.length - 1];
+                    switch(char) {
+                        case 's': { break; }
+                        case 'f': { st = st.substr(0, st.length - 1); break; }
+                        default: { st = st.concat('f'); break; }
+                    }
+                }
+                this.banSlotFromVoxel(newIdx, opposit[i], st);
+            }
+        }
+        return true;
+    }
+
+    banTileFromVoxel(index: number, tile: number) {
+        this.voxelTileList[index][tile] = false;
+        this.updateQueue.unshift([index, tile]);
+        let weight = this.tiles[tile].weight
+        this.sumOfWeights[index] -= weight;
+        this.sumOfLogWeights[index] -= weight * Math.log2(weight);
+    }
+
+    banTileByRules(index: number, orient: number, tile0: string) {
+        if (this.banRules[tile0] == undefined) return;
+        for (let tile1 of this.banRules[tile0]) {
+            let [tilename, slot] = tile1.split(":");
+            for (let i = 0; i < this.tileCount; i++) {
+                if (!this.voxelTileList[index][i]) continue;  
+                if (this.tiles[i].name != tilename || 
+                    this.tiles[i].slotType[orient] != slot) continue;
+                this.banTileFromVoxel(index, i);
+            }
+        }
+    }
+
+    banSlotFromVoxel(index: number, orient: number, slotType: string) {
+        for (let i = 0; i < this.tileCount; i++) {
+            if (!this.voxelTileList[index][i]) continue;  
+            if (this.tiles[i].slotType[orient] != slotType) continue;
+            this.banTileFromVoxel(index, i);
+        }
+    }
+
+    indexToCoord(index: number) {
+        let y = Math.floor(index / (this.l * this.w));
+        let z = Math.floor((index - y * this.l * this.w) / this.l);
+        let x = index - y * this.l * this.w - z * this.l;
+        return [x, y, z];
+    }
+
+    coordToIndex(coord: number[]) {
+        return coord[0] + coord[1] * this.l * this.w + coord[2] * this.l;
+    }
+
+    inBound(coord: number[]) {
+        return coord[0] >= 0 && coord[0] < this.l &&
+               coord[1] >= 0 && coord[1] < this.h &&
+               coord[2] >= 0 && coord[2] < this.w;
+    }
+}
+
+
+
+let bias = [
+    [1, 0, 0],
+    [0, 0, -1],
+    [-1, 0, 0],
+    [0, 0, 1],
+    [0, 1, 0],
+    [0, -1, 0],
+];
+
+// 0: right (x+)
+// 1: back  (z-)
+// 2: left  (x-)
+// 3: front (z+)
+// 4: top   (y+)
+// 5: bottom(y-)
+let opposit = [2, 3, 0, 1, 5, 4];
+let rotIdx = [3, 0, 1, 2, 4, 5];
+let mirIdx = [2, 1, 0, 3, 4, 5];
+
+export default WFC;

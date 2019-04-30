@@ -26,7 +26,6 @@ abstract class Drawable {
     gl.deleteBuffer(this.bufPos);
     gl.deleteBuffer(this.bufNor);
     gl.deleteBuffer(this.bufCol);
-    gl.deleteBuffer(this.bufTranslate);
     gl.deleteBuffer(this.bufUV);
   }
 

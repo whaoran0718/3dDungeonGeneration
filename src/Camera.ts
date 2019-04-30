@@ -1,38 +1,82 @@
-var CameraControls = require('3d-view-controls');
 import {vec3, mat4} from 'gl-matrix';
 
+export let dMouseX: number = 0;
+export let dMouseY: number = 0;
+export let leftDown: boolean = false;
+export let wheelY: number = 0;
+
 class Camera {
-  controls: any;
   projectionMatrix: mat4 = mat4.create();
   viewMatrix: mat4 = mat4.create();
   fovy: number = 45;
   aspectRatio: number = 1;
-  near: number = 0.1;
+  near: number = 0.01;
   far: number = 1000;
+  orthoSize: number = 20;
   position: vec3 = vec3.create();
-  direction: vec3 = vec3.create();
   target: vec3 = vec3.create();
   up: vec3 = vec3.create();
   right: vec3 = vec3.create();
   forward: vec3 = vec3.create();
+  theta: number = 0;
+  phi: number = 0;
+  len: number = 0;
+  turnSpeed: number = 1;
+  rollSpeed: number = 0.005;
 
-  constructor(position: vec3, target: vec3) {
-    const canvas = <HTMLCanvasElement> document.getElementById('canvas');
+  constructor(theta: number, phi: number, len: number, target: vec3) {
+    this.theta = theta;
+    this.phi = phi;
+    this.len = len;
+    this.orthoSize = len;
+    vec3.copy(this.target, target);
+    this.theta = Math.min(Math.max(this.theta, -85), 85);
+    this.calculate();
 
-    this.controls = CameraControls(canvas, {
-      eye: position,
-      center: target,
-    });
+    window.addEventListener("mousedown", function(e) {
+      switch(e.button) {
+        case 0:
+        leftDown = true;
+        break;
+      }
+    }, false);
 
-    vec3.add(this.target, this.position, this.direction);
-    mat4.lookAt(this.viewMatrix, this.controls.eye, this.controls.center, this.controls.up);
+    window.addEventListener("mouseup", function(e) {
+      switch(e.button) {
+        case 0:
+        leftDown = false;
+        break;
+      }
+    }, false);
 
-    this.position = this.controls.eye;
-    this.up = this.controls.up;
-    vec3.subtract(this.forward, this.target, this.position);
-    vec3.normalize(this.forward, this.forward);
-    vec3.cross(this.right, this.forward, this.up);
-    vec3.normalize(this.right, this.right);
+    window.addEventListener("mousemove", function(e) {
+      dMouseX = e.movementX;
+      dMouseY = e.movementY;
+    }, false);
+
+    window.addEventListener("wheel", function(e) {
+      wheelY = e.deltaY;
+    }, false);
+  }
+
+  calculate() {
+    if (this.phi <= -180) this.phi += 360;
+    if (this.phi > 180) this.phi -= 360;
+    let st = Math.sin(this.theta * Math.PI / 180);
+    let ct = Math.cos(this.theta * Math.PI / 180);
+    let sp = Math.sin(this.phi * Math.PI / 180);
+    let cp = Math.cos(this.phi * Math.PI / 180);
+    this.forward[0] = ct * sp;
+    this.forward[1] = -st;
+    this.forward[2] = -ct * cp;
+    this.right[0] = cp;
+    this.right[1] = 0;
+    this.right[2] = sp;
+    vec3.cross(this.up, this.right, this.forward);
+    let direction = vec3.create();
+    vec3.scale(direction, this.forward, this.len);
+    vec3.subtract(this.position, this.target, direction);
+    mat4.lookAt(this.viewMatrix, this.position, this.target, this.up);
   }
 
   setAspectRatio(aspectRatio: number) {
@@ -40,26 +84,24 @@ class Camera {
   }
 
   updateProjectionMatrix() {
-    mat4.perspective(this.projectionMatrix, this.fovy, this.aspectRatio, this.near, this.far);
+    //mat4.perspective(this.projectionMatrix, this.fovy, this.aspectRatio, this.near, this.far);
+    let width = this.orthoSize * this.aspectRatio;
+    mat4.ortho(this.projectionMatrix, -width, width, -this.orthoSize, this.orthoSize, -1000, 1000);
   }
 
   update() {
-    this.controls.tick();
-
-    vec3.add(this.target, this.position, this.direction);
-    this.position = vec3.fromValues(this.controls.eye[0], this.controls.eye[1], this.controls.eye[2]);
-    this.target = vec3.fromValues(this.controls.center[0], this.controls.center[1], this.controls.center[2]);
-    mat4.lookAt(this.viewMatrix, this.controls.eye, this.controls.center, this.controls.up);
-
-    this.position = this.controls.eye;
-    this.up = vec3.fromValues(this.controls.up[0], this.controls.up[1], this.controls.up[2]);
-    vec3.normalize(this.up, this.up);
-    vec3.subtract(this.forward, this.target, this.position);
-    vec3.normalize(this.forward, this.forward);
-    vec3.cross(this.right, this.forward, this.up);
-    vec3.normalize(this.right, this.right);
-    vec3.cross(this.up, this.right, this.forward);
-    vec3.normalize(this.up, this.up);
+    if (wheelY != 0) {
+      this.orthoSize = Math.min(Math.max(this.orthoSize + wheelY * this.rollSpeed, 5), 30);
+      this.len = Math.min(Math.max(this.len + wheelY * this.rollSpeed, 5), 30);
+      this.updateProjectionMatrix();
+    }
+    if (leftDown) {
+      this.phi += this.turnSpeed * dMouseX;
+      this.calculate();
+    }
+    dMouseX = 0;
+    dMouseY = 0;
+    wheelY = 0;
   }
 };
 
